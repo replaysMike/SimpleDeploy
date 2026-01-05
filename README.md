@@ -7,6 +7,8 @@ SimpleDeploy is an alternative to IIS Web Deploy. It hosts a service that will a
 ## Installing
 The installation will require installing the SimpleDeploy Agent which would run on the webserver, and the client application (either console or powershell extension). Download both from the releases section.
 
+The SimpleDeploy Agent runs on port 5001 by default, you will need to allow connections to it in your firewall as needed.
+
 ### Status
 This repo is currently in alpha status and is under testing so limited documentation and examples are currently available.
 
