@@ -61,6 +61,7 @@ Add-Artifact .\deploy.ps1 example.com
 
 Submitting a deployment:
 ```ps
+// specify the website to deploy, and let it know which artifact name that will serve as the deployment script using the --Script option
 Deploy-Website example.com --Script deploy.ps1 --Host localhost --Username test --Password test
 ```
 
