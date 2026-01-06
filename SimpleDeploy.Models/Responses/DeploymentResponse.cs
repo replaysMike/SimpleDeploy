@@ -11,5 +11,10 @@
         /// An optional message
         /// </summary>
         public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Log output from the deployment (only if interactive mode was specified)
+        /// </summary>
+        public string Log { get; set; } = string.Empty;
     }
 }

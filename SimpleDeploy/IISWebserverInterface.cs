@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿//using Microsoft.Web.Administration;
+using System.Diagnostics;
 using System.Management.Automation;
 using System.Text;
 using System.Xml;
@@ -25,11 +26,13 @@ namespace SimpleDeploy
 
         public ServerWebsite? GetWebsite(string website)
         {
-            var results = GetWebsitesViaPowershell();
+            // not using powershell or Microsoft.Web.Administration due to versioning issues with different versions of IIS possibly being installed
+            /*var results = GetWebsitesViaPowershell();
             if (!results.Any())
             {
                 results = GetWebsitesViaAppcmd();
-            }
+            }*/
+            var results = GetWebsitesViaAppcmd();
             return results
                 .Where(x => x.Bindings.Contains(website, StringComparison.InvariantCultureIgnoreCase))
                 .FirstOrDefault();
@@ -41,6 +44,9 @@ namespace SimpleDeploy
             try
             {
                 using var ps = PowerShell.Create();
+                ps.AddCommand(@"Import-Module").AddArgument("IISAdministration");
+                ps.Invoke();
+                ps.Commands.Clear();
                 ps.AddCommand("Get-IISSite");
                 var results = ps.Invoke();
                 if (ps.Streams.Error.Count > 0)
@@ -55,7 +61,33 @@ namespace SimpleDeploy
                 var websites = new List<ServerWebsite>();
                 foreach (var outputItem in results)
                 {
-
+                    var physicalPath = string.Empty;
+                    var websitePath = string.Empty;
+                    /*var applications = outputItem.Properties["Applications"].Value as ApplicationCollection;
+                    var application = applications?.FirstOrDefault();
+                    if (application != null)
+                    {
+                        var vdirs = application.VirtualDirectories;
+                        var vdir = vdirs?.FirstOrDefault();
+                        if (vdir != null)
+                        {
+                            physicalPath = vdir.PhysicalPath;
+                            websitePath = vdir.Path;
+                        }
+                    }*/
+                    var name = outputItem.Properties["Name"].Value.ToString();
+                    var id = (long)outputItem.Properties["Id"].Value;
+                    var bindings = outputItem.Properties["Bindings"].Value.ToString();
+                    //var state = outputItem.Properties["State"].Value.ToString(); // slow to access
+                    var website = new ServerWebsite()
+                    {
+                        Id = (int)id,
+                        Name = name ?? string.Empty,
+                        //State = state?.Value ?? string.Empty,
+                        Bindings = bindings ?? string.Empty,
+                        PhysicalPath = physicalPath ?? string.Empty,
+                        Path = websitePath ?? string.Empty,
+                    };
                 }
                 return websites;
             }

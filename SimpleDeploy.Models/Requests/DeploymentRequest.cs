@@ -28,5 +28,15 @@ namespace SimpleDeploy.Requests
         /// List of artifacts to deploy
         /// </summary>
         public List<IFormFile> Artifacts { get; set; } = new();
+
+        /// <summary>
+        /// True to run deployment in interactive mode to view output
+        /// </summary>
+        public bool Interactive { get; set; }
+
+        /// <summary>
+        /// Timeout for the deployment operation to return a response in interactive mode (in seconds). Default: 300 seconds.
+        /// </summary>
+        public int InteractiveTimeout { get; set; } = 300;
     }
 }

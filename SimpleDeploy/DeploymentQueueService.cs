@@ -7,10 +7,12 @@ namespace SimpleDeploy
     {
         private readonly ILogger<DeploymentQueueService> _logger;
         private readonly Configuration _config;
-        private readonly Queue<DeploymentQueueItem> _queue;
+        private readonly Queue<JobTask> _queue;
+        private readonly Dictionary<string, JobTask> _jobTasks;
         private readonly IWebserverInterface _webserverInterface;
         private ManualResetEvent _resetEvent = new ManualResetEvent(false);
         private Thread _queueThread;
+        private Thread _cleanupThread;
         private CustomLogManager _domainLogManager;
 
         public DeploymentQueueService(ILogger<DeploymentQueueService> logger, Configuration config, CustomLogManager domainLogManager, IWebserverInterface fetcher)
@@ -18,9 +20,14 @@ namespace SimpleDeploy
             _logger = logger;
             _config = config;
             _domainLogManager = domainLogManager;
-            _queue = new Queue<DeploymentQueueItem>();
+            _jobTasks = new();
+            _queue = new Queue<JobTask>();
             _queueThread = new Thread(new ThreadStart(QueueThread));
+            _queueThread.Name = "Queue management thread";
             _queueThread.Start();
+            _cleanupThread = new Thread(new ThreadStart(CleanupThread));
+            _cleanupThread.Name = "Cleanup thread";
+            _cleanupThread.Start();
             _webserverInterface = fetcher;
         }
 
@@ -29,14 +36,67 @@ namespace SimpleDeploy
             _resetEvent.Set();
         }
 
-        public async Task<bool> EnqueueDeploymentAsync(DeploymentQueueItem request)
+        public async Task<string?> EnqueueDeploymentAsync(DeploymentQueueItem request)
         {
-            // Placeholder implementation
-            if (_queue.Any(x => x.JobId == request.JobId))
-                return false;
+            if (_queue.Any(x => x.Request.JobId == request.JobId))
+                return null;
 
-            _queue.Enqueue(request);
-            return true;
+            var sb = new StringBuilder();
+            var task = new Task(() =>
+            {
+                WorkerJob(request, sb);
+            });
+
+            // keep track of the job task for output retrieval
+            var jobTask = new JobTask(request, task, sb);
+            _jobTasks.Add(request.JobId, jobTask);
+
+            _queue.Enqueue(jobTask);
+            return request.JobId;
+        }
+
+        public async Task<StringBuilder?> WaitForCompletionAsync(string jobId, TimeSpan timeout)
+        {
+            if (_jobTasks.ContainsKey(jobId))
+            {
+                var jobTask = _jobTasks[jobId];
+                try
+                {
+                    await jobTask.Task.WaitAsync(timeout);
+                }
+                catch (TimeoutException)
+                {
+                    // timeout
+                    jobTask.Output.AppendLine($"Job '{jobId}' timeout waiting for completion response {timeout}.");
+                    return null;
+                }
+                //_logger.LogInformation($"Job '{jobId}' completed with log length {jobTask.Output.Length} bytes");
+                return jobTask.Output;
+            }
+            return null;
+        }
+
+        private void CleanupThread()
+        {
+            // once per minute , clean up any completed jobs older than 5 minutes
+            while (!_resetEvent.WaitOne(60 * 1000))
+            {
+                try
+                {
+                    var completedJobs = _jobTasks.Values.Where(x => x.Completed.HasValue && (DateTime.UtcNow - x.Completed.Value).TotalMinutes > 5).ToList();
+                    foreach (var job in completedJobs)
+                    {
+                        job.Output.Clear();
+                        job.Task.Dispose();
+                        _jobTasks.Remove(job.Request.JobId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during cleanup of completed jobs.");
+                }
+            }
+            _logger.LogDebug($"{_cleanupThread.Name} shutdown.");
         }
 
         private void QueueThread()
@@ -45,19 +105,30 @@ namespace SimpleDeploy
             {
                 if (_queue.Count > 0)
                 {
-                    var item = _queue.Dequeue();
-                    var task = Task.Run(() =>
+                    var jobTask = _queue.Dequeue();
+                    // execute the work
+                    jobTask.Started = DateTime.UtcNow;
+                    try
                     {
-                        QueueWorker(item);
-                    });
+                        jobTask.Task.RunSynchronously();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error executing job '{jobTask.Request.JobId}'");
+                    }
+                    finally
+                    {
+                        jobTask.Completed = DateTime.UtcNow;
+                    }
                 }
             }
+            _logger.LogDebug($"{_queueThread.Name} shutdown.");
         }
 
-        private void QueueWorker(DeploymentQueueItem job)
+        private void WorkerJob(DeploymentQueueItem job, StringBuilder logOutput)
         {
             // create a logger for the website
-            var domainLogger = _domainLogManager.GetWebsiteLogger(job.Website);
+            var domainLogger = _domainLogManager.GetWebsiteLogger(job.Website, logOutput);
             try
             {
                 var websiteConfig = _config.Websites.Configurations.FirstOrDefault(x => x.Domain.Equals(job.Website, StringComparison.InvariantCultureIgnoreCase));
@@ -84,15 +155,15 @@ namespace SimpleDeploy
                 }
 
                 // save each file to the job folder
-                domainLogger.Info($"Artifacts ({job.Artifacts.Count}): {string.Join(", ", job.Artifacts.Select(x => Path.GetFileName(x.Filename)))}");
+                domainLogger.Info($"{job.JobId}| Artifacts ({job.Artifacts.Count}): {string.Join(", ", job.Artifacts.Select(x => Path.GetFileName(x.Filename)))}");
                 foreach (var artifact in job.Artifacts)
                 {
-                    domainLogger.Info($"Saving artifact {artifact.Filename} ({artifact.Data.Length} bytes)");
+                    domainLogger.Info($"{job.JobId}| - Saving artifact {artifact.Filename} ({artifact.Data.Length} bytes)");
                     File.WriteAllBytes(Path.Combine(jobFolder, artifact.Filename), artifact.Data.ToArray());
                     artifact.Data.Dispose();
                 }
 
-                domainLogger.Info($"Fetching information from webserver...");
+                domainLogger.Info($"{job.JobId}| Fetching information from webserver...");
                 var iisWebsite = _webserverInterface.GetWebsite(job.Website);
                 if (iisWebsite == null)
                     _logger.LogWarning($"'{job.Website}' website could not be found in web server.");
@@ -123,17 +194,17 @@ namespace SimpleDeploy
                 {
                     // extract any zip files (todo: add other archive types?)
                     var zipFiles = Directory.GetFiles(jobFolder, "*.zip", SearchOption.AllDirectories);
-                    domainLogger.Info($"Found {zipFiles.Length} zip files to extract...");
+                    domainLogger.Info($"{job.JobId}| Found {zipFiles.Length} zip files to extract...");
                     foreach (var zipFile in zipFiles)
                     {
                         try
                         {
                             var extractPath = Path.GetDirectoryName(zipFile) ?? jobFolder;
-                            domainLogger.Info($"Extracting zip file '{zipFile}' to '{extractPath}'...");
+                            domainLogger.Info($"{job.JobId}| - Extracting zip file '{zipFile}' to '{extractPath}'...");
                             var extractStartTime = DateTime.UtcNow;
                             System.IO.Compression.ZipFile.ExtractToDirectory(zipFile, extractPath ?? jobFolder, true);
                             var extractElapsed = DateTime.UtcNow - extractStartTime;
-                            domainLogger.Info($"Finished extracting zip file '{zipFile}' in {extractElapsed}!");
+                            domainLogger.Info($"{job.JobId}| - Finished extracting zip file '{zipFile}' in {extractElapsed}!");
                             try
                             {
                                 // make sure to remove the zip file after extraction
@@ -162,26 +233,36 @@ namespace SimpleDeploy
 
                 // determine deployment scripts
                 // does it refer to a file in artifacts or a script directly?
+                if (string.IsNullOrEmpty(job.DeploymentScript))
+                {
+                    // no deployment script specified, try to determine the name automatically if it was included in the artifacts
+                    var defaultScripts = new List<string> { "deploy.ps1", "deploy.psm1", "deploy.psc1", "deploy.cmd", "deploy.bat" };
+                    if (job.Artifacts.Any(x => defaultScripts.Contains(x.Filename, StringComparer.InvariantCultureIgnoreCase)))
+                    {
+                        job.DeploymentScript = job.Artifacts.First(x => defaultScripts.Contains(x.Filename, StringComparer.InvariantCultureIgnoreCase)).Filename;
+                        domainLogger.Info($"{job.JobId}| No deployment script specified, using default from artifacts: '{job.DeploymentScript}'");
+                    }
+                }
                 var deploymentScriptFilename = string.Empty;
                 var pathToDeployScript = jobFolder;
                 if (job.Artifacts.Any(x => x.Filename.Equals(job.DeploymentScript, StringComparison.InvariantCultureIgnoreCase)))
                 {
-                    // deployment script is an artifact
+                    // deployment script is an artifact file
                     deploymentScriptFilename = job.DeploymentScript;
                     pathToDeployScript = Path.Combine(jobFolder, job.DeploymentScript);
                 }
                 else if (job.DeploymentScript?.Length > 0)
                 {
-                    // deployment script is provided directly
+                    // deployment script is provided directly as a string
                     // save it to a file
-                    domainLogger.Info($"Saving deployment script {job.DeploymentScript} ({job.DeploymentScript?.Length} bytes)");
+                    domainLogger.Info($"{job.JobId}| Saving deployment script {job.DeploymentScript} ({job.DeploymentScript?.Length} bytes)");
                     deploymentScriptFilename = "deploy.ps1";
                     pathToDeployScript = Path.Combine(jobFolder, deploymentScriptFilename);
                     File.WriteAllText(pathToDeployScript, job.DeploymentScript ?? string.Empty);
                 }
                 else
                 {
-                    domainLogger.Error($"Could not determine deployment script - artifacts specified a deployment script named '{job.DeploymentScript}' but was not found and no direct script was provided.");
+                    domainLogger.Error($"{job.JobId}| Could not determine deployment script - artifacts specified a deployment script named '{job.DeploymentScript}' but was not found and no direct script was provided.");
                     return;
                 }
 
@@ -215,7 +296,7 @@ namespace SimpleDeploy
 
                 // delete job files if requested
                 if (_config.CleanupAfterDeploy)
-                    Cleanup(domainLogger, jobFolder);
+                    Cleanup(job, domainLogger, jobFolder);
 
                 var elapsed = DateTime.UtcNow - startTime;
                 _logger.LogInformation($"Processing of job '{job.JobId}' complete in {elapsed}.");
@@ -243,23 +324,23 @@ namespace SimpleDeploy
             }
         }
 
-        private void Cleanup(NLog.ILogger domainLogger, string jobFolder)
+        private void Cleanup(DeploymentQueueItem job, LogWrapper domainLogger, string jobFolder)
         {
             try
             {
-                domainLogger.Info($"Cleaning up job folder '{jobFolder}'...");
+                domainLogger.Info($"{job.JobId}|Cleaning up job folder '{jobFolder}'...");
                 // sanity check, todo: improve this
                 if (jobFolder != "C:\\" && jobFolder != "C:/" && jobFolder != "\\" && jobFolder != "/")
                     Directory.Delete(jobFolder, true);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to cleanup folder '{jobFolder}'");
-                domainLogger.Error(ex, $"Failed to cleanup folder '{jobFolder}'");
+                _logger.LogError(ex, $"[{job.JobId}] Failed to cleanup folder '{jobFolder}'");
+                domainLogger.Error(ex, $"{job.JobId}| Failed to cleanup folder '{jobFolder}'");
             }
         }
 
-        private void RunScriptFromFile(NLog.ILogger domainLogger, string jobId, string? scriptFile)
+        private void RunScriptFromFile(LogWrapper domainLogger, string jobId, string? scriptFile)
         {
             var psExtensions = new List<string> { ".ps1", ".psm1", ".psd1" };
             if (string.IsNullOrEmpty(scriptFile) || !File.Exists(scriptFile))

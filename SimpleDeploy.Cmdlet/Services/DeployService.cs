@@ -5,7 +5,7 @@ namespace SimpleDeploy.Cmdlet.Services
 {
     public class DeployService
     {
-        public void Deploy(ArtifactService artifactService, string website, string? deploymentScript, string host, string username, string password, string token, int port, int timeout, int requestTimeout, bool autoCopy, bool autoExtract, bool ignoreCert, Action<string> onVerbose, Action<string> onWarning)
+        public void Deploy(ArtifactService artifactService, string website, string? deploymentScript, string host, string username, string password, string token, int port, int timeout, int requestTimeout, bool autoCopy, bool autoExtract, bool ignoreCert, bool interactive, Action<string> onVerbose, Action<string> onWarning, Action<string> onInteractive)
         {
             // submit a POST request to the deployment server
             var form = new MultipartFormDataContent();
@@ -13,26 +13,31 @@ namespace SimpleDeploy.Cmdlet.Services
             form.Add(new StringContent(deploymentScript ?? string.Empty), "DeploymentScript");
             form.Add(new StringContent(autoCopy.ToString()), "AutoCopy");
             form.Add(new StringContent(autoExtract.ToString()), "AutoExtract");
+            form.Add(new StringContent(interactive.ToString()), "Interactive");
 
-            foreach (var artifact in artifactService.ArtifactStore)
+            // add artifacts
+            if (artifactService.ArtifactStore.Any())
             {
-                if (string.IsNullOrWhiteSpace(artifact))
-                    continue;
-                var filePath = Path.GetFullPath(artifact);
-                onVerbose($"Adding artifact file: {filePath}");
-                if (!string.IsNullOrWhiteSpace(filePath))
+                foreach (var artifact in artifactService.ArtifactStore)
                 {
-                    if (File.Exists(filePath))
+                    if (string.IsNullOrWhiteSpace(artifact))
+                        continue;
+                    var filePath = Path.GetFullPath(artifact);
+                    onVerbose($"Adding artifact file: {filePath}");
+                    if (!string.IsNullOrWhiteSpace(filePath))
                     {
-                        var fileStream = File.OpenRead(filePath);
-                        var streamContent = new StreamContent(fileStream);
+                        if (File.Exists(filePath))
+                        {
+                            var fileStream = File.OpenRead(filePath);
+                            var streamContent = new StreamContent(fileStream);
 
-                        form.Add(streamContent, "Artifacts", Path.GetFileName(filePath));
-                    }
-                    else
-                    {
-                        onWarning($"Artifact '{filePath}' does not exist!");
-                        return;
+                            form.Add(streamContent, "Artifacts", Path.GetFileName(filePath));
+                        }
+                        else
+                        {
+                            onWarning($"Artifact '{filePath}' does not exist!");
+                            return;
+                        }
                     }
                 }
             }
@@ -72,6 +77,7 @@ namespace SimpleDeploy.Cmdlet.Services
                 onVerbose($"Submitting to {uri}");
                 try
                 {
+                    if (interactive) Console.WriteLine("Interactive mode, waiting on response...");
                     response = client.PostAsync(uri, form).GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
@@ -99,7 +105,7 @@ namespace SimpleDeploy.Cmdlet.Services
                             catch (Exception ex2)
                             {
                                 Console.WriteLine($"Exception: [{ex2.GetType()}] {ex2.GetBaseException().Message}");
-                                if ((ex2 is TaskCanceledException || ex2 is HttpRequestException) 
+                                if ((ex2 is TaskCanceledException || ex2 is HttpRequestException)
                                     && ex2.GetBaseException().Message.Contains("timeout", StringComparison.InvariantCultureIgnoreCase))
                                 {
                                     onWarning($"Timeout exceeded, could not connect.");
@@ -133,6 +139,21 @@ namespace SimpleDeploy.Cmdlet.Services
                     }
                 }
 
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                };
+                if (interactive)
+                {
+                    var responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    if (!string.IsNullOrWhiteSpace(responseBody))
+                    {
+                        var body = JsonSerializer.Deserialize<DeploymentResponse>(responseBody, jsonOptions);
+                        if (!string.IsNullOrEmpty(body?.Log))
+                            onInteractive(body.Log);
+                    }
+                }
+
                 if (response.IsSuccessStatusCode)
                 {
                     var responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
@@ -142,14 +163,10 @@ namespace SimpleDeploy.Cmdlet.Services
                         onWarning($"No response received from server. Status Code: {response.StatusCode}, Content-Length: {responseBody.Length}");
                         return;
                     }
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    };
-                    var body = JsonSerializer.Deserialize<DeploymentResponse>(responseBody, options);
+                    var body = JsonSerializer.Deserialize<DeploymentResponse>(responseBody, jsonOptions);
                     if (body?.IsSuccess == true)
                     {
-                        Console.WriteLine($"Deployment successful for {website}.");
+                        Console.WriteLine($"Deployment successfully submitted for {website}.");
                         // clear the local artifact store on successful deployment
                         artifactService.Remove();
                     }
@@ -160,7 +177,7 @@ namespace SimpleDeploy.Cmdlet.Services
                 }
                 else
                 {
-                    switch(response.StatusCode)
+                    switch (response.StatusCode)
                     {
                         case System.Net.HttpStatusCode.Unauthorized:
                             onWarning($"Unauthorized! Invalid username, password, or token.");

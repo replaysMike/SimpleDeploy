@@ -16,8 +16,8 @@ namespace Deploy
         [Option('d', "deploy", Required = false, HelpText = "Deploy the website")]
         public bool Deploy { get; set; }
 
-        [Option('f', "file", Required = false, HelpText = "Specify the filename of an artifact")]
-        public string? File { get; set; }
+        [Option('f', "file", Required = false, HelpText = "Specify the filename(s) of an artifact")]
+        public IEnumerable<string>? File { get; set; }
 
         [Option('w', "website", Required = true, HelpText = "Specify the website to deploy")]
         public string? Website { get; set; }
@@ -57,5 +57,8 @@ namespace Deploy
 
         [Option('i', "ignorecert", Required = false, HelpText = "Ignore any SSL certificate errors")]
         public bool IgnoreCert { get; set; }
+
+        [Option("interactive", Required = false, HelpText = "Run deployment in interactive mode to view the output")]
+        public bool Interactive { get; set; }
     }
 }

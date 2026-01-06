@@ -55,7 +55,10 @@ namespace SimpleDeploy.Middleware
             //if (IPAddress.IsLoopback(ipAddress)) 
             //    isAllowed = true;
             if (!isAllowed)
-                isAllowed = ipRanges.Any(x => x.Contains(ipv4Address));
+            {
+                // check against both the mapped IPv4 and original IP address
+                isAllowed = ipRanges.Any(x => x.Contains(ipv4Address)) || ipRanges.Any(x => x.Contains(ipAddress));
+            }
 
             return isAllowed;
         }
