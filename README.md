@@ -58,6 +58,12 @@ Submitting a deployment and auto extract compressed files before running the dep
 .\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --autoextract
 ```
 
+Submitting a deployment and ignoring ssl certificate errors:
+```
+// if your ssl certificate has issues, you can opt to ignore the certificate validity check
+.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --ignorecert
+```
+
 Listing the artifacts currently added for an upcoming deployment:
 ```
 .\Deploy.exe --get --website example.com
