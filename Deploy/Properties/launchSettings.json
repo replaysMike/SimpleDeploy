@@ -2,7 +2,7 @@
   "profiles": {
     "Deploy": {
       "commandName": "Project",
-      "commandLineArgs": "-d -s deploy.ps1 -f Deploy.dll *.exe -w test.io -u mikeb -p m0rnfl00z -h localhost --ignorecert --autoextract --interactive"
+      "commandLineArgs": ""
     }
   }
 }
