@@ -68,12 +68,13 @@ Import-Module SimpleDeploy.Cmdlet
 Adding artifacts to a deployment:
 ```ps
 Add-Artifact .\MyApplication.zip example.com
-Add-Artifact .\deploy.ps1 example.com
+Add-Artifact --File .\deploy.ps1 --Website example.com
+Add-Artifact --File ".\deploy.ps1","*.zip" --Website example.com
 ```
 
 Submitting a deployment:
 ```ps
-// specify the website to deploy, and let it know which artifact name that will serve as the deployment script using the --Script option
+# specify the website to deploy, and let it know which artifact name that will serve as the deployment script using the --Script option
 Deploy-Website example.com --Script deploy.ps1 --Host localhost --Username test --Password test
 ```
 
