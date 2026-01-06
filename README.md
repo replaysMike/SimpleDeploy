@@ -30,8 +30,20 @@ Adding artifacts to a deployment:
 
 Submitting a deployment:
 ```
-// specify the website to deploy, and let it know which artifact name that will serve as the deployment script using the --script option
+// specify the website to deploy, and let it know which artifact file name that will serve as the deployment script using the --script option
 .\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test
+```
+
+Submitting a deployment with adding artifacts inline:
+```
+// specify the website to deploy, and let it know which artifact file name that will serve as the deployment script using the --script option
+.\Deploy.exe --deploy --script deploy.ps1 --file deploy.ps1 *.zip --website example.com --host localhost --username test --password test
+```
+
+Submitting a deployment without specifying deployment script
+```
+// specify the website to deploy, auto detect the detect the deployment script name based on presets (deploy.ps1, deploy.bat, deploy.cmd)
+.\Deploy.exe --deploy --file deploy.ps1 *.zip --website example.com --host localhost --username test --password test
 ```
 
 Listing the artifacts currently added for an upcoming deployment:
