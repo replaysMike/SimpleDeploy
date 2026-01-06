@@ -46,6 +46,18 @@ Submitting a deployment without specifying deployment script
 .\Deploy.exe --deploy --file deploy.ps1 *.zip --website example.com --host localhost --username test --password test
 ```
 
+Submitting a deployment interactively to view the log output
+```
+// it will wait until deployment is complete and output the deployment script logs
+.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --interactive
+```
+
+Submitting a deployment and auto extract compressed files before running the deployment script
+```
+// compressed files included in the artifacts will be decompressed before running the deployment script. Saves you from having to extract them inside your script.
+.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --autoextract
+```
+
 Listing the artifacts currently added for an upcoming deployment:
 ```
 .\Deploy.exe --get --website example.com
