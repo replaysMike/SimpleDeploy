@@ -30,7 +30,8 @@ Adding artifacts to a deployment:
 
 Submitting a deployment:
 ```
-.\Deploy.exe --deploy --website example.com --host localhost --username test --password test
+// specify the website to deploy, and let it know which artifact name that will serve as the deployment script using the --script option
+.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test
 ```
 
 Listing the artifacts currently added for an upcoming deployment:
@@ -60,7 +61,7 @@ Add-Artifact .\deploy.ps1 example.com
 
 Submitting a deployment:
 ```ps
-Deploy-Website example.com --Host localhost --Username test --Password test
+Deploy-Website example.com --Script deploy.ps1 --Host localhost --Username test --Password test
 ```
 
 Listing the artifacts currently added for an upcoming deployment:
