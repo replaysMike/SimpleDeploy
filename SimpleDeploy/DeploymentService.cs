@@ -30,6 +30,7 @@ namespace SimpleDeploy
         {
             try
             {
+                _logger.LogInformation($"Shutting down service...");
                 _cancellationTokenSource.Cancel();
             }
             catch (Exception ex)
@@ -99,7 +100,10 @@ namespace SimpleDeploy
             // map api controllers
             app.MapControllers();
 
-            _logger.LogInformation($"SimpleDeploy service started.");
+            var message = $"SimpleDeploy service started on port {_config.Port}";
+            if (!string.IsNullOrEmpty(_config.Username)) message += $" with user based authentication";
+            else if (!string.IsNullOrEmpty(_config.AuthToken)) message += $" with token based authentication";
+            _logger.LogInformation(message);
             app.RunAsync(_cancellationTokenSource.Token);
         }
     }

@@ -165,7 +165,7 @@ ExitCode Deploy(Options options)
             }
         };
         Action<string> onWarning = str => Console.WriteLine(str);
-        deployService.Deploy(artifactService, options.Website, options.DeploymentScript, options.Host, options.Username ?? string.Empty, options.Password ?? string.Empty, options.Token ?? string.Empty, options.Port, options.Timeout, options.RequestTimeout, onVerbose, onWarning);
+        deployService.Deploy(artifactService, options.Website, options.DeploymentScript, options.Host, options.Username ?? string.Empty, options.Password ?? string.Empty, options.Token ?? string.Empty, options.Port, options.Timeout, options.RequestTimeout, options.AutoCopy, options.AutoExtract, options.IgnoreCert, onVerbose, onWarning);
     }
     catch (Exception ex)
     {

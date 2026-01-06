@@ -63,6 +63,10 @@ namespace SimpleDeploy
             {
                 _logger.LogError(ex, $"[{nameof(IISWebserverInterface)}] IIS Powershell extensions are not available.");
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[{nameof(IISWebserverInterface)}] Failed to get IIS websites via Powershell.");
+            }
             return new();
         }
 

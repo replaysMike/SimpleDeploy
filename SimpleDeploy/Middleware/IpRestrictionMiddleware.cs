@@ -5,13 +5,15 @@ namespace SimpleDeploy.Middleware
 {
     public class IpRestrictionMiddleware
     {
+        private readonly ILogger<IpRestrictionMiddleware> _logger;
         private readonly RequestDelegate _next;
         private readonly Configuration _config;
 
-        public IpRestrictionMiddleware(RequestDelegate next, Configuration config)
+        public IpRestrictionMiddleware(RequestDelegate next, Configuration config, ILogger<IpRestrictionMiddleware> logger)
         {
             _next = next;
             _config = config;
+            _logger = logger;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -22,6 +24,7 @@ namespace SimpleDeploy.Middleware
             {
                 if (!IsAllowed(remoteIpAddress))
                 {
+                    _logger.LogWarning($"Forbidden request from IP: {remoteIpAddress} (ipv4: {remoteIpAddress?.MapToIPv4()})");
                     // If the IP is not allowed, return a 403 Forbidden response
                     context.Response.StatusCode = (int)System.Net.HttpStatusCode.Forbidden;
                     return;
@@ -52,7 +55,7 @@ namespace SimpleDeploy.Middleware
             //if (IPAddress.IsLoopback(ipAddress)) 
             //    isAllowed = true;
             if (!isAllowed)
-                isAllowed = ipRanges.Any(x => x.Contains(ipAddress));
+                isAllowed = ipRanges.Any(x => x.Contains(ipv4Address));
 
             return isAllowed;
         }

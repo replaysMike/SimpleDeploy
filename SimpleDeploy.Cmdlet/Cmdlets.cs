@@ -1,16 +1,17 @@
 ﻿using SimpleDeploy.Cmdlet.Services;
 using System.Management.Automation;
+using System.Runtime.InteropServices;
 
 namespace SimpleDeploy.Cmdlet
 {
     [Cmdlet(VerbsCommon.Add, "Artifact")]
     public class AddArtifactCmdlet : System.Management.Automation.PSCmdlet
     {
-        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the filename of an artifact")]
         [Alias("f")]
         public string File { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the website")]
         [Alias("w", "domain", "d")]
         public string Website { get; set; } = string.Empty;
 
@@ -54,11 +55,11 @@ namespace SimpleDeploy.Cmdlet
     [Cmdlet(VerbsCommon.Remove, "Artifact")]
     public class RemoveArtifactCmdlet : System.Management.Automation.PSCmdlet
     {
-        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the filename of an artifact")]
         [Alias("f")]
         public string File { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the website")]
         [Alias("w", "domain", "d")]
         public string Website { get; set; } = string.Empty;
 
@@ -105,7 +106,7 @@ namespace SimpleDeploy.Cmdlet
     [OutputType(typeof(Artifact))]
     public class GetArtifactsCmdlet : System.Management.Automation.PSCmdlet
     {
-        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the website")]
         [Alias("w", "domain", "d")]
         public string Website { get; set; } = string.Empty;
 
@@ -143,39 +144,49 @@ namespace SimpleDeploy.Cmdlet
     [Cmdlet("Deploy", "Website")]
     public class DeployWebsiteCmdlet : System.Management.Automation.PSCmdlet
     {
-        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the website to deploy")]
         [Alias("w", "domain", "d")]
         public string Website { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = false, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the deployment script, filename or content")]
         [Alias("deployment-script", "script", "s")]
         public string? DeploymentScript { get; set; }
 
-        [Parameter(Mandatory = true, Position = 2, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = true, Position = 2, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the host to deploy to (ip or hostname)")]
         [Alias("h", "ip")]
         public new string Host { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = false, Position = 3, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 3, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the username for deployment")]
         [Alias("u", "user")]
         public string Username { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = false, Position = 4, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 4, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the password for deployment")]
         [Alias("p", "pass")]
         public string Password { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = false, Position = 5, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 5, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the authentication token for deployment")]
         [Alias("t", "token")]
         public string Token { get; set; } = string.Empty;
 
-        [Parameter(Mandatory = false, Position = 6, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 6, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the port number of the deployment host (default: 5001)")]
         public int Port { get; set; } = 5001;
 
-        [Parameter(Mandatory = false, Position = 7, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 7, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the timeout (default: 5 seconds)")]
         public int Timeout { get; set; } = 5;
 
-        [Parameter(Mandatory = false, Position = 8, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+        [Parameter(Mandatory = false, Position = 8, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the request timeout (default: 300 seconds)")]
         [Alias("r")]
         public int RequestTimeout { get; set; } = 300;
+
+        [Parameter(Mandatory = false, Position = 9, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Automatically copy files to destination after running deployment (default: true)")]
+        public SwitchParameter AutoCopy { get; set; } = true;
+
+        [Parameter(Mandatory = false, Position = 10, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Automatically extract compressed files before running deployment (default: false)")]
+        public SwitchParameter AutoExtract { get; set; }
+
+        [Parameter(Mandatory = false, Position = 11, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Ignore any SSL certificate errors")]
+        [Alias("r")]
+        public SwitchParameter IgnoreCert { get; set; }
 
         protected override void ProcessRecord()
         {
@@ -209,7 +220,7 @@ namespace SimpleDeploy.Cmdlet
             {
                 Action<string> onVerbose = str => WriteVerbose(str);
                 Action<string> onWarning = str => WriteWarning(str);
-                deployService.Deploy(artifactService, Website, DeploymentScript, Host, Username, Password, Token, Port, Timeout, RequestTimeout, onVerbose, onWarning);
+                deployService.Deploy(artifactService, Website, DeploymentScript, Host, Username, Password, Token, Port, Timeout, RequestTimeout, AutoCopy.ToBool(), AutoExtract.ToBool(), IgnoreCert.ToBool(), onVerbose, onWarning);
             }
             catch (Exception ex)
             {

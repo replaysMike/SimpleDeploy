@@ -48,5 +48,14 @@ namespace Deploy
 
         [Option('v', "verbose", Required = false, HelpText = "Specify verbose output")] 
         public bool Verbose { get; set; }
+
+        [Option("autocopy", Required = false, HelpText = "Automatically copy files to destination after running deployment (default: true)")]
+        public bool AutoCopy { get; set; } = true;
+
+        [Option("autoextract", Required = false, HelpText = "Automatically extract compressed files before running deployment (default: false)")]
+        public bool AutoExtract { get; set; }
+
+        [Option('i', "ignorecert", Required = false, HelpText = "Ignore any SSL certificate errors")]
+        public bool IgnoreCert { get; set; }
     }
 }

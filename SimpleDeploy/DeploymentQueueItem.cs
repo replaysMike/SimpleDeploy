@@ -10,6 +10,16 @@
         public string? DeploymentScript { get; set; }
 
         /// <summary>
+        /// True to copy the files automatically after running the deployment script
+        /// </summary>
+        public bool AutoCopy { get; set; } = true;
+
+        /// <summary>
+        /// True to autoextract zip files before running deployment script
+        /// </summary>
+        public bool AutoExtract { get; set; }
+
+        /// <summary>
         /// List of artifact files
         /// </summary>
         public List<ArtifactFile> Artifacts { get; set; } = new();
