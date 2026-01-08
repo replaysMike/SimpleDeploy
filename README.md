@@ -23,56 +23,88 @@ Artifacts should be added first before submitting a deployment. After deploying,
 Adding artifacts to a deployment:
 ```
 // add a zip file
-.\Deploy.exe --add --website example.com --file ./MyApplication.zip
+.\Deploy.exe --add --deployment-name example.com --file ./MyApplication.zip
 // add a deployment script
-.\Deploy.exe -a -w example.com -f ./deploy.ps1
+.\Deploy.exe -a -n example.com -f ./deploy.ps1
 ```
 
 Submitting a deployment:
 ```
-// specify the website to deploy, and let it know which artifact file name that will serve as the deployment script using the --script option
-.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test
+// specify the website or deployment name to deploy, and let it know which artifact file name that will serve as the deployment script using the --script option
+.\Deploy.exe --deploy --script deploy.ps1 --deployment-name example.com --host localhost --username test --password test
+```
+
+Submitting a deployment while auto stopping/starting IIS and copying the deployment to the website path:
+```
+// specify the website or deployment name to deploy, and let it know which artifact file name that will serve as the deployment script using the --script option
+.\Deploy.exe --deploy --script deploy.ps1 --deployment-name example.com --domain example.com --host localhost --username test --password test --iis --autocopy
 ```
 
 Submitting a deployment with adding artifacts inline:
 ```
 // specify the website to deploy, and let it know which artifact file name that will serve as the deployment script using the --script option
-.\Deploy.exe --deploy --script deploy.ps1 --file deploy.ps1 *.zip --website example.com --host localhost --username test --password test
+.\Deploy.exe --deploy --script deploy.ps1 --file deploy.ps1 *.zip --deployment-name example.com --host localhost --username test --password test
 ```
 
 Submitting a deployment without specifying deployment script
 ```
 // specify the website to deploy, auto detect the detect the deployment script name based on presets (deploy.ps1, deploy.bat, deploy.cmd)
-.\Deploy.exe --deploy --file deploy.ps1 *.zip --website example.com --host localhost --username test --password test
+.\Deploy.exe --deploy --file deploy.ps1 *.zip --deployment-name example.com --host localhost --username test --password test
 ```
 
 Submitting a deployment interactively to view the log output
 ```
 // it will wait until deployment is complete and output the deployment script logs
-.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --interactive
+.\Deploy.exe --deploy --script deploy.ps1 --deployment-name example.com --host localhost --username test --password test --interactive
 ```
 
 Submitting a deployment and auto extract compressed files before running the deployment script
 ```
 // compressed files included in the artifacts will be decompressed before running the deployment script. Saves you from having to extract them inside your script.
-.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --autoextract
+.\Deploy.exe --deploy --script deploy.ps1 --deployment-name example.com --host localhost --username test --password test --autoextract
 ```
 
 Submitting a deployment and ignoring ssl certificate errors:
 ```
 // if your ssl certificate has issues, you can opt to ignore the certificate validity check
-.\Deploy.exe --deploy --script deploy.ps1 --website example.com --host localhost --username test --password test --ignorecert
+.\Deploy.exe --deploy --script deploy.ps1 --deployment-name example.com --host localhost --username test --password test --ignorecert
 ```
 
 Listing the artifacts currently added for an upcoming deployment:
 ```
-.\Deploy.exe --get --website example.com
+.\Deploy.exe --get --deployment-name example.com
 ```
 
 Removing an artifact:
 ```
-.\Deploy.exe --remove --file ./MyApplication.zip --website example.com
+.\Deploy.exe --remove --file ./MyApplication.zip --deployment-name example.com
 ```
+
+All options:
+| Option | Description |
+| ------ | ------- |
+| -a, --add | Add an artifact to the deployment |
+| -r, --remove | Remove an artifact from the deployment |
+| -g, --get | Get the artifacts for the deployment |
+| -d, --deploy | Deploy the website |
+| -f, --file | Specify the filename(s) of an artifact |
+| -n, --deployment-name | Required. Specify a name for the deployment |
+| -s, --script | Specify the deployment script, filename or content (default: deploy.ps1) |
+| -h, --host | Specify the host to deploy to (ip or hostname) |
+| -u, --username | Specify the username for deployment |
+| -p, --password | Specify the password for deployment |
+| -t, --token | Specify the authentication token for deployment |
+| --port | Specify the port number of the deployment host (default: 5001) |
+| --timeout | Specify the connection timeout (default: 5 seconds) |
+| --request-timeout | Specify the request timeout (default: 300 seconds) |
+| -v, --verbose | Specify verbose output |
+| --autocopy | Automatically copy files to destination after running deployment (default: false) |
+| --autoextract | Automatically extract compressed files before running deployment (default: false) |
+| -i, --ignorecert | Ignore any SSL certificate errors |
+| --interactive | Run deployment in interactive mode to view the output |
+| --iis | Specify this is an IIS website, stop and start the website during deployment. |
+| --help | Display this help screen. |
+| --version | Display version information. |
 
 ### Powershell client
 
@@ -86,14 +118,14 @@ Import-Module SimpleDeploy.Cmdlet
 Adding artifacts to a deployment:
 ```ps
 Add-Artifact .\MyApplication.zip example.com
-Add-Artifact --File .\deploy.ps1 --Website example.com
-Add-Artifact --File ".\deploy.ps1","*.zip" --Website example.com
+Add-Artifact --File .\deploy.ps1 --DeploymentName example.com
+Add-Artifact --File ".\deploy.ps1","*.zip" --DeploymentName example.com
 ```
 
 Submitting a deployment:
 ```ps
 # specify the website to deploy, and let it know which artifact name that will serve as the deployment script using the --Script option
-Deploy-Website example.com --Script deploy.ps1 --Host localhost --Username test --Password test
+Deploy-Website example.com --Script deploy.ps1 --Host localhost --Username test --Password test --IIS --AutoCopy
 ```
 
 Listing the artifacts currently added for an upcoming deployment:
@@ -125,7 +157,7 @@ Example configuration:
     "WorkingFolder": "c:/SimpleDeploy",
     "CleanupAfterDeploy": true,
     "RestartAfterDeploy": true,
-    "Websites": {
+    "DeploymentNames": {
       //"Allow": [ "*" ],
       "Allow": [ "example.com" ],
       "Configurations": []
