@@ -1,4 +1,5 @@
-﻿using NLog;
+﻿using Microsoft.AspNetCore.Http.Features;
+using NLog;
 using NLog.Extensions.Logging;
 using SimpleDeploy.Middleware;
 using System.Net;
@@ -50,6 +51,7 @@ namespace SimpleDeploy
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.ConfigureKestrel(options =>
             {
+                options.Limits.MaxRequestBodySize = _config.MaxDeploymentSize; // 1GB default value, user configured
                 if (_config.IpAddress == "*")
                     options.ListenAnyIP(_config.Port, listenOptions =>
                     {
@@ -65,8 +67,12 @@ namespace SimpleDeploy
             });
 
             // Add services to the container.
-
             builder.Services.AddNLog();
+            builder.Services.Configure<FormOptions>(options =>
+            {
+                // configure the max multipart body length, required for posting large files
+                options.MultipartBodyLengthLimit = _config.MaxDeploymentSize + (64 * 1024); // 1GB default value, user configured plus 64kb space for additional form values such as artifacts and deployment script
+            });
             builder.Services.AddSingleton<Configuration>(_config);
             builder.Services.AddSingleton<DeploymentQueueService>();
             builder.Services.AddScoped<AuthenticatorService>();
@@ -100,10 +106,12 @@ namespace SimpleDeploy
             // map api controllers
             app.MapControllers();
 
-            var message = $"{nameof(SimpleDeploy)} service started on port {_config.Port}";
+            var message = $"{nameof(SimpleDeploy)} service started on port {_config.Port}, max {Tools.DisplayFileSize(_config.MaxDeploymentSize)} deployment size";
             if (!string.IsNullOrEmpty(_config.Username)) message += $" with user based authentication";
             else if (!string.IsNullOrEmpty(_config.AuthToken)) message += $" with token based authentication";
             _logger.LogInformation(message);
+            var paths = $"Jobs folder: '{Path.Combine(_config.WorkingFolder, _config.JobsFolder)}' Backup folder: '{Path.Combine(_config.WorkingFolder, _config.BackupsFolder)}'";
+            _logger.LogInformation(paths);
             app.RunAsync(_cancellationTokenSource.Token);
         }
     }

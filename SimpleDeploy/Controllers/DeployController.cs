@@ -29,11 +29,11 @@ namespace SimpleDeploy.Controllers
             return Ok(new StatusResponse { Status = Status.Running });
         }
 
-        [HttpGet("test")]
+        [HttpGet("list")]
         public async Task<IActionResult> GetTestAsync()
         {
             var websites = _fetcher.GetWebsites();
-            return Ok(new StatusResponse { Status = Status.Running });
+            return Ok(new StatusResponse { Status = Status.Running, Websites = websites.Select(x => x.Name), Allowed = _config.DeploymentNames.Allow });
         }
 
         [HttpPost]
@@ -64,27 +64,31 @@ namespace SimpleDeploy.Controllers
                     return Unauthorized("Invalid authentication token.");
                 }
 
-                if (_config.Websites.Allow.FirstOrDefault() == "*" || _config.Websites.Allow.Contains(request.Website, StringComparer.InvariantCultureIgnoreCase))
+                var deploymentName = string.IsNullOrEmpty(request.Domain) ? request.DeploymentName : request.Domain;
+                if (_config.DeploymentNames.Allow.FirstOrDefault() == "*" || _config.DeploymentNames.Allow.Contains(deploymentName, StringComparer.InvariantCultureIgnoreCase))
                 {
                     // website is allowed to be deployed
                 }
                 else
                 {
-                    _logger.LogError($"Website {request.Website} not configured for deployment.");
-                    return BadRequest($"Website {request.Website} not configured for deployment.");
+                    _logger.LogError($"'{deploymentName}' not configured for deployment.");
+                    return BadRequest($"'{deploymentName}' not configured for deployment.");
                 }
 
                 // queue files for deployment
                 var queueItem = new DeploymentQueueItem
                 {
                     JobId = JobIdFactory.Create(),
-                    Website = request.Website,
+                    DeploymentName = request.DeploymentName,
+                    Domain = request.Domain,
                     DeploymentScript = request.DeploymentScript,
                     AutoCopy = request.AutoCopy,
                     AutoExtract = request.AutoExtract,
+                    Interactive = request.Interactive,
+                    IIS = request.IIS,
                     DateCreated = DateTime.UtcNow,
                 };
-                _logger.LogInformation($"Deploying website {request.Website} as job '{queueItem.JobId}'");
+                _logger.LogInformation($"Deploying '{deploymentName}' as job '{queueItem.JobId}'");
                 foreach (var file in request.Artifacts)
                 {
                     var ms = new MemoryStream(); // do not dispose, we need to pass it along
@@ -101,6 +105,8 @@ namespace SimpleDeploy.Controllers
                 {
                     return BadRequest($"Failed to queue the job '{queueItem.JobId}'.");
                 }
+
+                // wait for completion if interactive mode is requested
                 var log = string.Empty;
                 if (request.Interactive)
                 {
@@ -108,8 +114,11 @@ namespace SimpleDeploy.Controllers
                     if (sb != null)
                         log = sb.ToString();
                 }
+                else
+                {
+                    _logger.LogInformation($"Job '{queueItem.JobId}' queued for '{deploymentName}'");
+                }
 
-                _logger.LogInformation($"Job '{queueItem.JobId}' created for website {request.Website}");
                 return Ok(new DeploymentResponse() { IsSuccess = true, Log = log });
             }
             catch (Exception ex)

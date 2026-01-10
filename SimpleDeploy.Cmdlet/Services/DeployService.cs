@@ -5,15 +5,18 @@ namespace SimpleDeploy.Cmdlet.Services
 {
     public class DeployService
     {
-        public void Deploy(ArtifactService artifactService, string website, string? deploymentScript, string host, string username, string password, string token, int port, int timeout, int requestTimeout, bool autoCopy, bool autoExtract, bool ignoreCert, bool interactive, Action<string> onVerbose, Action<string> onWarning, Action<string> onInteractive)
+        public void Deploy(ArtifactService artifactService, string deploymentName, string? domain, string? deploymentScript, string host, string username, string password, string token, int port, int timeout, int requestTimeout, bool autoCopy, bool autoExtract, bool ignoreCert, bool interactive, bool iis, Action<string> onVerbose, Action<string> onWarning, Action<string> onInteractive)
         {
             // submit a POST request to the deployment server
             var form = new MultipartFormDataContent();
-            form.Add(new StringContent(website), "Website");
+            form.Add(new StringContent(deploymentName), "DeploymentName");
+            form.Add(new StringContent(domain ?? string.Empty), "Domain");
             form.Add(new StringContent(deploymentScript ?? string.Empty), "DeploymentScript");
             form.Add(new StringContent(autoCopy.ToString()), "AutoCopy");
             form.Add(new StringContent(autoExtract.ToString()), "AutoExtract");
             form.Add(new StringContent(interactive.ToString()), "Interactive");
+            form.Add(new StringContent(iis.ToString()), "IIS");
+            form.Add(new StringContent(300.ToString()), "InteractiveTimeout");
 
             // add artifacts
             if (artifactService.ArtifactStore.Any())
@@ -82,7 +85,7 @@ namespace SimpleDeploy.Cmdlet.Services
                 }
                 catch (Exception ex)
                 {
-                    onVerbose($"Exception: [{ex.GetType()}] {ex.GetBaseException().Message}");
+                    onVerbose($"Exception: [{ex.GetType()}] {ex.Message}{Environment.NewLine}{(ex.InnerException != null ? ex.GetBaseException().Message : string.Empty)}");
                     if ((ex is TaskCanceledException || ex is HttpRequestException)
                         && ex.GetBaseException().Message.Contains("timeout", StringComparison.InvariantCultureIgnoreCase))
                     {
@@ -97,9 +100,12 @@ namespace SimpleDeploy.Cmdlet.Services
                                 {
                                     Timeout = TimeSpan.FromSeconds(timeout)
                                 };
-                                client.DefaultRequestHeaders.Add("X-Username", username);
-                                client.DefaultRequestHeaders.Add("X-Password", password);
-                                client.DefaultRequestHeaders.Add("X-Token", token);
+                                if (!string.IsNullOrEmpty(username))
+                                    client.DefaultRequestHeaders.Add("X-Username", username);
+                                if (!string.IsNullOrEmpty(password))
+                                    client.DefaultRequestHeaders.Add("X-Password", password);
+                                if (!string.IsNullOrEmpty(token))
+                                    client.DefaultRequestHeaders.Add("X-Token", token);
                                 response = client.PostAsync(uri, form).GetAwaiter().GetResult();
                             }
                             catch (Exception ex2)
@@ -116,7 +122,7 @@ namespace SimpleDeploy.Cmdlet.Services
                                     if (ex2.GetBaseException().Message.Contains("certificate was rejected"))
                                         onWarning($"Failed to submit deployment due to failed SSL certificate check. Try using the --ignorecert option.");
                                     else
-                                        onWarning($"Failed to connect to {uri}: {ex2.GetType()}:{ex2.GetBaseException().Message}");
+                                        onWarning($"Failed to connect to {uri}: {ex2.GetType()}:{ex2.Message}{Environment.NewLine}{(ex2.InnerException != null ? ex2.GetBaseException().Message : string.Empty)}");
                                     return;
 
                                 }
@@ -166,13 +172,13 @@ namespace SimpleDeploy.Cmdlet.Services
                     var body = JsonSerializer.Deserialize<DeploymentResponse>(responseBody, jsonOptions);
                     if (body?.IsSuccess == true)
                     {
-                        Console.WriteLine($"Deployment successfully submitted for {website}.");
+                        Console.WriteLine($"Deployment successfully submitted for {deploymentName}.");
                         // clear the local artifact store on successful deployment
                         artifactService.Remove();
                     }
                     else
                     {
-                        onWarning($"Failed to deploy for {website}. Http Code: {response.StatusCode} Response: {responseBody}");
+                        onWarning($"Failed to deploy for {deploymentName}. Http Code: {response.StatusCode} Response: {responseBody}");
                     }
                 }
                 else
@@ -196,7 +202,7 @@ namespace SimpleDeploy.Cmdlet.Services
                             onWarning($"Request timed out when connecting to {uri}. The server may be busy or unreachable.");
                             return;
                         default:
-                            onWarning($"Failed to deploy for {website}. Http Code: {response.StatusCode}");
+                            onWarning($"Failed to deploy for {deploymentName}. Http Code: {response.StatusCode}");
                             break;
                     }
                 }

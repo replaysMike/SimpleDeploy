@@ -29,6 +29,7 @@ namespace SimpleDeploy.Middleware
                     context.Response.StatusCode = (int)System.Net.HttpStatusCode.Forbidden;
                     return;
                 }
+                _logger.LogInformation($"Allowed request from IP: {remoteIpAddress} (ipv4: {remoteIpAddress?.MapToIPv4()})");
             }
 
             await _next(context);

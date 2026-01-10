@@ -16,11 +16,12 @@ namespace SimpleDeploy
 
         public List<ServerWebsite> GetWebsites()
         {
-            var results = GetWebsitesViaPowershell();
+            /*var results = GetWebsitesViaPowershell();
             if (!results.Any())
             {
                 results = GetWebsitesViaAppcmd();
-            }
+            }*/
+            var results = GetWebsitesViaAppcmd();
             return results;
         }
 

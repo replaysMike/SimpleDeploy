@@ -5,9 +5,14 @@ namespace SimpleDeploy.Requests
     public class DeploymentRequest
     {
         /// <summary>
-        /// The website to deploy
+        /// The name of the deployment
         /// </summary>
-        public string Website { get; set; } = string.Empty;
+        public string DeploymentName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The domain name of the website
+        /// </summary>
+        public string? Domain { get; set; }
 
         /// <summary>
         /// Pre-deployment script or filename from artifacts
@@ -17,7 +22,7 @@ namespace SimpleDeploy.Requests
         /// <summary>
         /// True to copy the files automatically after running the deployment script
         /// </summary>
-        public bool AutoCopy { get; set; } = true;
+        public bool AutoCopy { get; set; }
 
         /// <summary>
         /// True to autoextract zip files before running deployment script
@@ -33,6 +38,11 @@ namespace SimpleDeploy.Requests
         /// True to run deployment in interactive mode to view output
         /// </summary>
         public bool Interactive { get; set; }
+
+        /// <summary>
+        /// True to start/stop the website automatically
+        /// </summary>
+        public bool IIS { get; set; }
 
         /// <summary>
         /// Timeout for the deployment operation to return a response in interactive mode (in seconds). Default: 300 seconds.

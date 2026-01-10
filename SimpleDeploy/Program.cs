@@ -5,7 +5,7 @@ using Topshelf;
 using Topshelf.Runtime;
 
 var serviceDescription = "SimpleDeploy provides website deployment services.";
-var displayName = "SimpleDeploy";
+var displayName = "SimpleDeploy Agent";
 var serviceName = "SimpleDeploy";
 
 

@@ -20,13 +20,13 @@
             }
         }
 
-        public string CreateOrLoadStore(string path, string website)
+        public string CreateOrLoadStore(string path, string deploymentName)
         {
-            var store = SimpleDeployTools.GetStoreFileLocation(path, website);
+            var store = SimpleDeployTools.GetStoreFileLocation(path, deploymentName);
             if (string.IsNullOrEmpty(store))
             {
                 // no existing store, create one here
-                store = Path.Combine(path, $"{SimpleDeployConstants.StoreFile}{website.ToLower()}{SimpleDeployConstants.StoreExtension}");
+                store = Path.Combine(path, $"{SimpleDeployConstants.StoreFile}{deploymentName.ToLower()}{SimpleDeployConstants.StoreExtension}");
             }
             StoreFile = store;
 

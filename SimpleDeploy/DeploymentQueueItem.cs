@@ -27,7 +27,13 @@
         /// <summary>
         /// Website to deploy
         /// </summary>
-        public string Website { get; set; } = string.Empty;
+        public string? Domain { get; set; }
+
+        public string DeploymentName { get; set; } = string.Empty;
+
+        public bool Interactive { get; set; }
+
+        public bool IIS { get; set; }
 
         public DateTime DateCreated { get; set; }
     }

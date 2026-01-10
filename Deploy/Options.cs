@@ -19,10 +19,13 @@ namespace Deploy
         [Option('f', "file", Required = false, HelpText = "Specify the filename(s) of an artifact")]
         public IEnumerable<string>? File { get; set; }
 
-        [Option('w', "website", Required = true, HelpText = "Specify the website to deploy")]
-        public string? Website { get; set; }
+        [Option('n', "deployment-name", Required = true, HelpText = "Specify a name for the deployment")]
+        public string? DeploymentName { get; set; }
 
-        [Option('s', "script", Required = false, HelpText = "Specify the deployment script, filename or content")]
+        [Option('w', "domain", Required = false, HelpText = "Specify the domain name for the deployment. If not provided, DeploymentName will be used")]
+        public string? Domain { get; set; }
+
+        [Option('s', "script", Required = false, HelpText = "Specify the deployment script, filename or content (default: deploy.ps1)")]
         public string? DeploymentScript { get; set; }
 
         [Option('h', "host", Required = false, HelpText = "Specify the host to deploy to (ip or hostname)")]
@@ -49,8 +52,8 @@ namespace Deploy
         [Option('v', "verbose", Required = false, HelpText = "Specify verbose output")] 
         public bool Verbose { get; set; }
 
-        [Option("autocopy", Required = false, HelpText = "Automatically copy files to destination after running deployment (default: true)")]
-        public bool AutoCopy { get; set; } = true;
+        [Option("autocopy", Required = false, HelpText = "Automatically copy files to destination after running deployment (default: false)")]
+        public bool AutoCopy { get; set; }
 
         [Option("autoextract", Required = false, HelpText = "Automatically extract compressed files before running deployment (default: false)")]
         public bool AutoExtract { get; set; }
@@ -60,5 +63,8 @@ namespace Deploy
 
         [Option("interactive", Required = false, HelpText = "Run deployment in interactive mode to view the output")]
         public bool Interactive { get; set; }
+
+        [Option("iis", Required = false, HelpText = "Specify this is an IIS website, stop and start the website during deployment.")]
+        public bool IIS { get; set; }
     }
 }

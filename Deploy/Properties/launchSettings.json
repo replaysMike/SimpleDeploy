@@ -2,7 +2,7 @@
   "profiles": {
     "Deploy": {
       "commandName": "Project",
-      "commandLineArgs": ""
+      "commandLineArgs": "-d -f B:\\gitrepo\\personalcode\\Binner.io\\Binner.Web.zip B:\\gitrepo\\personalcode\\Binner.io\\Scripts\\deploy-web.ps1 -s .\\deploy-web.ps1 -n binner.io --domain binner.io -u deploy -p \"SH@514Q3-eCv\" -h 192.168.1.33 --ignorecert --autocopy --autoextract --iis"
     }
   }
 }

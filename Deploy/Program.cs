@@ -27,8 +27,8 @@ Parser.Default.ParseArguments<Options>(args)
         {
             exitCode = ExitCode.InvalidArguments;
             Console.WriteLine("Error: no command/unknown command specified");
-            Console.WriteLine("Example: deploy -a artifact.zip -w example.com");
-            Console.WriteLine("Example: deploy -w example.com");
+            Console.WriteLine("Example (add artifact): Deploy.exe -a -f examplefile.zip -n example.com");
+            Console.WriteLine("Example (deploy): Deploy.exe -d -h localhost -n example.com");
         }
     });
 return (int)exitCode;
@@ -39,12 +39,12 @@ ExitCode AddArtifact(Options options)
     var path = Environment.CurrentDirectory;
     if (options.File == null || !options.File.Any())
     {
-        Console.WriteLine("Error: Artifact file(s) must be specified using the -f option.");
+        Console.WriteLine("Error: Artifact file(s) must be specified (-f).");
         return ExitCode.InvalidArguments;
     }
-    if (string.IsNullOrWhiteSpace(options.Website))
+    if (string.IsNullOrWhiteSpace(options.DeploymentName))
     {
-        Console.WriteLine("Error: Website must be specified using the -w option.");
+        Console.WriteLine("Error: A deployment name must be specified (-n).");
         return ExitCode.InvalidArguments;
     }
     // check if files exist
@@ -57,7 +57,7 @@ ExitCode AddArtifact(Options options)
             return ExitCode.InvalidArguments;
         }
     }
-    var store = artifactService.CreateOrLoadStore(path, options.Website);
+    var store = artifactService.CreateOrLoadStore(path, options.DeploymentName);
     if (options.Verbose) Console.WriteLine($"Artifacts store: {store}");
     // add to store
     foreach (var file in options.File)
@@ -85,18 +85,18 @@ ExitCode RemoveArtifact(Options options)
     var path = Environment.CurrentDirectory;
     if (options.File == null || !options.File.Any())
     {
-        Console.WriteLine($"File must be specified.");
+        Console.WriteLine($"File must be specified (-f).");
         return ExitCode.InvalidArguments;
     }
-    if (string.IsNullOrWhiteSpace(options.Website))
+    if (string.IsNullOrWhiteSpace(options.DeploymentName))
     {
-        Console.WriteLine($"Website must be specified.");
+        Console.WriteLine($"A deployment name must be specified (-n).");
         return ExitCode.InvalidArguments;
     }
-    var store = artifactService.CreateOrLoadStore(path, options.Website);
+    var store = artifactService.CreateOrLoadStore(path, options.DeploymentName);
     if (artifactService.ArtifactStore.Count == 0)
     {
-        Console.WriteLine($"No artifacts have been added! Syntax: Add-Artifact -File ./examplefile.zip -Website example.com");
+        Console.WriteLine($"No artifacts have been added! Syntax: Deploy.exe -f ./examplefile.zip -n example.com");
         return ExitCode.InvalidArguments;
     }
 
@@ -122,15 +122,15 @@ ExitCode GetArtifacts(Options options)
 {
     var artifactService = new ArtifactService();
     var path = Environment.CurrentDirectory;
-    if (string.IsNullOrWhiteSpace(options.Website))
+    if (string.IsNullOrWhiteSpace(options.DeploymentName))
     {
-        Console.WriteLine($"Website must be specified.");
+        Console.WriteLine($"A deployment name must be specified (-n).");
         return ExitCode.InvalidArguments;
     }
-    var store = artifactService.CreateOrLoadStore(path, options.Website);
+    var store = artifactService.CreateOrLoadStore(path, options.DeploymentName);
     if (artifactService.ArtifactStore.Count == 0)
     {
-        Console.WriteLine($"No artifacts have been added! Syntax: Add-Artifact -File ./examplefile.zip -Website example.com");
+        Console.WriteLine($"No artifacts have been added! Syntax: Deploy.exe -f ./examplefile.zip -n example.com");
         return ExitCode.InvalidArguments;
     }
 
@@ -153,17 +153,17 @@ ExitCode Deploy(Options options)
     // check for artifacts for the website in temp store
     // upload
     // delete from temp store
-    if (string.IsNullOrWhiteSpace(options.Website))
+    if (string.IsNullOrWhiteSpace(options.DeploymentName))
     {
-        Console.WriteLine($"Website must be specified.");
+        Console.WriteLine($"A deployment name must be specified (-n).");
         return ExitCode.InvalidArguments;
     }
     if (string.IsNullOrWhiteSpace(options.Host))
     {
-        Console.WriteLine($"Host must be specified.");
+        Console.WriteLine($"Host to deploy to must be specified (-h).");
         return ExitCode.InvalidArguments;
     }
-    var store = artifactService.CreateOrLoadStore(path, options.Website);
+    var store = artifactService.CreateOrLoadStore(path, options.DeploymentName);
     // to support in-line specified files, add them to the artifact store temporarily
     if (options.File != null && options.File.Any())
     {
@@ -186,7 +186,7 @@ ExitCode Deploy(Options options)
     }
     if (artifactService.ArtifactStore.Count == 0)
     {
-        Console.WriteLine($"No artifacts have been added! Syntax: Add-Artifact -File ./examplefile.zip -Website example.com");
+        Console.WriteLine($"No artifacts have been added! Syntax: Deploy.exe -f ./examplefile.zip -n example.com");
         return ExitCode.InvalidArguments;
     }
     if (options.Verbose && File.Exists(store)) Console.WriteLine($"Artifacts file: {store}");
@@ -210,7 +210,7 @@ ExitCode Deploy(Options options)
             Console.WriteLine(str);
             Console.ForegroundColor = color;
         };
-        deployService.Deploy(artifactService, options.Website, options.DeploymentScript, options.Host, options.Username ?? string.Empty, options.Password ?? string.Empty, options.Token ?? string.Empty, options.Port, options.Timeout, options.RequestTimeout, options.AutoCopy, options.AutoExtract, options.IgnoreCert, options.Interactive, onVerbose, onWarning, onInteractive);
+        deployService.Deploy(artifactService, options.DeploymentName, options.Domain, options.DeploymentScript, options.Host, options.Username ?? string.Empty, options.Password ?? string.Empty, options.Token ?? string.Empty, options.Port, options.Timeout, options.RequestTimeout, options.AutoCopy, options.AutoExtract, options.IgnoreCert, options.Interactive, options.IIS, onVerbose, onWarning, onInteractive);
     }
     catch (Exception ex)
     {
