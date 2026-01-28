@@ -114,36 +114,56 @@
         /// True to autocopy files after deployment script completes.
         /// Forces configuration on the agent side.
         /// </summary>
-        public bool AutoCopy { get; set; }
+        public bool? AutoCopy { get; set; }
 
         /// <summary>
         /// True to autoextract compressed files before deployment script starts.
         /// Forces configuration on the agent side.
         /// </summary>
-        public bool AutoExtract { get; set; }
+        public bool? AutoExtract { get; set; }
 
         /// <summary>
         /// True to delete all file contents of the destination path before deploying.
         /// Configuration only available on the agent side.
         /// </summary>
-        public bool CleanBeforeDeploy { get; set; }
+        public bool? CleanBeforeDeploy { get; set; }
 
         /// <summary>
         /// True to stop the website on the webserver before deploying.
         /// Forces configuration on the agent side.
         /// </summary>
-        public bool StopBeforeDeploy { get; set; }
+        public bool? StopBeforeDeploy { get; set; }
 
         /// <summary>
         /// True to start the website on the webserver after deploying.
         /// Forces configuration on the agent side.
         /// </summary>
-        public bool StartAfterDeploy { get; set; }
+        public bool? StartAfterDeploy { get; set; }
 
         /// <summary>
         /// True to enable backup of the current website before deploying
         /// Configuration only available on the agent side.
         /// </summary>
         public bool Backup { get; set; }
+
+        /// <summary>
+        /// The command to use to start the service after deployment
+        /// </summary>
+        public string? StartCommand { get; set; }
+
+        /// <summary>
+        /// Arguments to pass start command
+        /// </summary>
+        public string? StartCommandArguments { get; set; }
+
+        /// <summary>
+        /// The command to use to stop the service before deployment
+        /// </summary>
+        public string? StopCommand { get; set; }
+
+        /// <summary>
+        /// Arguments to pass stop command
+        /// </summary>
+        public string? StopCommandArguments { get; set; }
     }
 }

@@ -3,6 +3,7 @@ using NLog;
 using NLog.Extensions.Logging;
 using SimpleDeploy.Middleware;
 using System.Net;
+using System.Reflection;
 using Topshelf;
 
 namespace SimpleDeploy
@@ -48,6 +49,8 @@ namespace SimpleDeploy
 
         private void RunStart()
         {
+            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+            _logger.LogInformation($"Starting {nameof(SimpleDeploy)} v{currentVersion?.ToString(3)} service...");
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.ConfigureKestrel(options =>
             {

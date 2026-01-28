@@ -168,7 +168,11 @@ namespace SimpleDeploy
 
                 // fetch information from the web server
                 ServerWebsite? iisWebsite = FetchIISWebsite(job, systemLogger, domainLogger, websiteConfig, domain);
-
+                var destinationPath = !string.IsNullOrEmpty(websiteConfig?.Path) ? websiteConfig.Path : iisWebsite?.PhysicalPath;
+                domainLogger.Info($"Job path: {workingJobFolder}");
+                domainLogger.Info($"Destination path: {destinationPath}");
+                domainLogger.Info($"AutoCopy: {websiteConfig?.AutoCopy == true || job.AutoCopy}, AutoExtract: {websiteConfig?.AutoExtract == true || job.AutoExtract}, Backup: {websiteConfig?.Backup == true}, CleanBeforeDeploy: {websiteConfig?.CleanBeforeDeploy == true}, StopBeforeDeploy: {websiteConfig?.StopBeforeDeploy == true}, StartAfterDeploy: {websiteConfig?.StartAfterDeploy == true}, IIS: {websiteConfig?.IIS == true || job.IIS}");
+                
                 // auto extract zip files (if requested)
                 var flowControl = AutoExtractCompressedFiles(job, systemLogger, domainLogger, websiteConfig, workingJobFolder);
                 if (!flowControl) return;
@@ -177,10 +181,8 @@ namespace SimpleDeploy
                 flowControl = DetermineDeploymentScriptName(job, domainLogger, workingJobFolder, out var deploymentScriptFilename, out var pathToDeployScript);
                 if (!flowControl) return;
 
-                var destinationPath = !string.IsNullOrEmpty(websiteConfig?.Path) ? websiteConfig.Path : iisWebsite?.PhysicalPath;
-
-                // stop website (if requested)
-                StopWebsite(job, systemLogger, domainLogger, websiteConfig, domain);
+                // stop website/service (if requested)
+                StopService(job, systemLogger, domainLogger, workingJobFolder, destinationPath, websiteConfig, domain);
 
                 // clean destination path (if requested)
                 CleanDestinationFolder(domainLogger, websiteConfig, destinationPath);
@@ -198,8 +200,8 @@ namespace SimpleDeploy
                 // delete job files (if requested)
                 Cleanup(job, systemLogger, domainLogger, workingJobFolder);
 
-                // start website (if requested)
-                StartWebsite(job, systemLogger, domainLogger, websiteConfig, domain);
+                // start website/service (if requested)
+                StartService(job, systemLogger, domainLogger, workingJobFolder, destinationPath, websiteConfig, domain);
 
                 var elapsed = DateTime.UtcNow - startTime;
                 systemLogger.Info($"Processing of job '{job.JobId}' complete in {elapsed}.");
@@ -233,7 +235,7 @@ namespace SimpleDeploy
                 deploymentScriptFilename = job.DeploymentScript ?? string.Empty;
                 pathToDeployScript = Path.Combine(jobFolder, Path.GetFileName(deploymentScriptFilename));
             }
-            else if (job.DeploymentScript?.Length > 0)
+            else if (job.DeploymentScript?.Length > 0 && job.DeploymentScript?.EndsWith(".ps1") == false)
             {
                 // deployment script is provided directly as a string
                 // save it to a file
@@ -251,9 +253,10 @@ namespace SimpleDeploy
             return true;
         }
 
-        private void StartWebsite(DeploymentQueueItem job, LogWrapper systemLogger, LogWrapper domainLogger, DeploymentNameConfiguration? websiteConfig, string domain)
+        private void StartService(DeploymentQueueItem job, LogWrapper systemLogger, LogWrapper domainLogger, string jobFolder, string? destinationPath, DeploymentNameConfiguration? websiteConfig, string domain)
         {
-            if ((websiteConfig != null && websiteConfig.IIS && websiteConfig.StartAfterDeploy == true) || job.IIS)
+            if (websiteConfig == null || !(websiteConfig.StartAfterDeploy == true)) return;
+            if (websiteConfig.IIS || job.IIS)
             {
                 // restart the website in IIS
                 if (_webserverInterface.Start(domain))
@@ -267,11 +270,16 @@ namespace SimpleDeploy
                     domainLogger.Error($"Failed to start website '{domain}'!");
                 }
             }
+            else if (!string.IsNullOrEmpty(websiteConfig.StartCommand))
+            {
+                RunConfigCommand(systemLogger, domainLogger, jobFolder, destinationPath, websiteConfig.StartCommand, websiteConfig.StartCommandArguments, "start");
+            }
         }
 
-        private void StopWebsite(DeploymentQueueItem job, LogWrapper systemLogger, LogWrapper domainLogger, DeploymentNameConfiguration? websiteConfig, string domain)
+        private void StopService(DeploymentQueueItem job, LogWrapper systemLogger, LogWrapper domainLogger, string jobFolder, string? destinationPath, DeploymentNameConfiguration? websiteConfig, string domain)
         {
-            if ((websiteConfig != null && websiteConfig.IIS && websiteConfig.StopBeforeDeploy) || job.IIS)
+            if (websiteConfig == null || !(websiteConfig.StopBeforeDeploy == true)) return;
+            if (websiteConfig.IIS || job.IIS)
             {
                 // stop the website in the webserver
                 systemLogger.Info($"Stopping website '{domain}'...");
@@ -287,11 +295,15 @@ namespace SimpleDeploy
                     domainLogger.Warn($"Failed to stop website '{domain}'!");
                 }
             }
+            else if (!string.IsNullOrEmpty(websiteConfig.StopCommand))
+            {
+                RunConfigCommand(systemLogger, domainLogger, jobFolder, destinationPath, websiteConfig.StopCommand, websiteConfig.StopCommandArguments, "stop");
+            }
         }
 
         private static void CopyDeploymentToDestinationFolder(DeploymentQueueItem job, LogWrapper systemLogger, LogWrapper domainLogger, DeploymentNameConfiguration? websiteConfig, string jobFolder, string deploymentScriptFilename, string destinationPath)
         {
-            if (!string.IsNullOrEmpty(destinationPath) && ((websiteConfig != null && websiteConfig.IIS && websiteConfig.AutoCopy) || (job.IIS && job.AutoCopy)))
+            if (!string.IsNullOrEmpty(destinationPath) && ((websiteConfig != null && websiteConfig.AutoCopy == true) || job.AutoCopy))
             {
                 var files = Directory.GetFiles(jobFolder, "*", SearchOption.AllDirectories);
                 systemLogger.Info($"Copying {files.Length} deployment files to '{destinationPath}'...");
@@ -318,7 +330,7 @@ namespace SimpleDeploy
 
         private static void CleanDestinationFolder(LogWrapper domainLogger, DeploymentNameConfiguration? websiteConfig, string? destinationPath)
         {
-            if ((websiteConfig != null && websiteConfig.CleanBeforeDeploy) && !string.IsNullOrEmpty(destinationPath))
+            if ((websiteConfig != null && websiteConfig?.CleanBeforeDeploy == true) && !string.IsNullOrEmpty(destinationPath))
             {
                 // delete the destination path website files before deploying
                 var directoryInfo = new DirectoryInfo(destinationPath);
@@ -349,7 +361,7 @@ namespace SimpleDeploy
 
         private static bool AutoExtractCompressedFiles(DeploymentQueueItem job, LogWrapper systemLogger, LogWrapper domainLogger, DeploymentNameConfiguration? websiteConfig, string jobFolder)
         {
-            if ((websiteConfig != null && websiteConfig.AutoExtract) || job.AutoExtract)
+            if ((websiteConfig != null && websiteConfig.AutoExtract == true) || job.AutoExtract)
             {
                 // extract any zip files (todo: add other archive types?)
                 var zipFiles = Directory.GetFiles(jobFolder, "*.zip", SearchOption.AllDirectories);
@@ -502,6 +514,59 @@ namespace SimpleDeploy
                     systemLogger.Error(ex, $"Failed to cleanup folder '{jobFolder}'");
                     domainLogger.Error(ex, $"Failed to cleanup folder '{jobFolder}'");
                 }
+            }
+        }
+
+        private void RunConfigCommand(LogWrapper systemLogger, LogWrapper domainLogger, string workingJobFolderRoot, string? destinationPath, string? commandPath, string? commandArguments, string tag)
+        {
+            if (string.IsNullOrEmpty(commandPath)) return;
+
+            var startInfo = new ProcessStartInfo();
+            var workingDirectory = destinationPath;
+            var tool = commandPath.Replace("%PATH%", destinationPath).Replace("%JOBPATH%", workingJobFolderRoot);
+            startInfo.FileName = tool;
+            startInfo.WorkingDirectory = workingDirectory;
+            if (!string.IsNullOrEmpty(commandArguments))
+                startInfo.Arguments = commandArguments;
+            startInfo.UseShellExecute = false;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
+            startInfo.CreateNoWindow = true;
+            try
+            {
+                systemLogger.Info($"Running {tag} command '{tool} {commandArguments}'...");
+                domainLogger.Info($"Running {tag} command '{tool} {commandArguments}'...");
+
+                using var process = new Process { StartInfo = startInfo };
+                var outputBuilder = new StringBuilder();
+                var errorBuilder = new StringBuilder();
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        domainLogger.Info($"TOOL| {e.Data}");
+                        outputBuilder.Append(e.Data);
+                    }
+                };
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        domainLogger.Error($"TOOL| {e.Data}");
+                        errorBuilder.Append(e.Data);
+                    }
+                };
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                process.WaitForExit();
+                systemLogger.Info($"{tag} command completed with exit code ({process.ExitCode})");
+                domainLogger.Info($"{tag} command completed with exit code ({process.ExitCode})");
+            }
+            catch (Exception ex)
+            {
+                systemLogger.Error(ex, $"Error running {tag} command '{tool}'");
+                domainLogger.Error(ex, $"Error running {tag} command '{tool}'");
             }
         }
 
