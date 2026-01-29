@@ -1,11 +1,11 @@
 # SimpleDeploy
-A simple web deployment service for windows/IIS
+A simple deployment service with IIS integrations.
 
 ## Description
-SimpleDeploy is an alternative to IIS Web Deploy. It hosts a service that will accept files/jobs to be deployed to a particular website hosted in IIS, allowing you to run a custom deploy script and upload multiple artifacts via command line/powershell.
+SimpleDeploy is a simple deployment tool for publishing deployments remotely. It hosts a service that will accept files/jobs to be deployed to a destination server/host, allowing you to run a custom deploy script and upload multiple artifacts via command line or powershell. SimpleDeploy supports IIS integration for seamlessly deploying websites.
 
 ## Installing
-The installation will require installing the SimpleDeploy Agent which would run on the webserver, and the client application (either console or powershell extension). Download both from the releases section.
+Download the [latest release files](https://github.com/replaysMike/SimpleDeploy/releases). The installation will require installing the SimpleDeploy Agent which would run on the server/host you are deploying to, and the client application (either the Deploy client console application or Powershell Cmdlet extensions).
 
 The SimpleDeploy Agent runs on port 5001 by default, you will need to allow connections to it in your firewall as needed.
 
@@ -89,6 +89,7 @@ All options:
 | -d, --deploy | Deploy the website |
 | -f, --file | Specify the filename(s) of an artifact |
 | -n, --deployment-name | Required. Specify a name for the deployment |
+| -w, --domain | Specify the domain name for the deployment. If not provided, DeploymentName will be used |
 | -s, --script | Specify the deployment script, filename or content (default: deploy.ps1) |
 | -h, --host | Specify the host to deploy to (ip or hostname) |
 | -u, --username | Specify the username for deployment |
@@ -140,7 +141,7 @@ Remove-Artifact ./MyApplication.zip example.com
 
 ## Configuring the SimpleDeploy Agent service
 
-The default installation path for the SimpleDeploy Agent service is `C:\Program Files\SimpleDeploy Agent`. You should add either username/password or auth token based authentication in the config file named `appsettings.json`
+The default installation path for the SimpleDeploy Agent service is `C:\Program Files\SimpleDeploy Agent`. You should add either username/password or auth token based authentication in the config file named `appsettings.json`. We plan to support public key authentication support in the near future.
 
 Example configuration:
 
@@ -155,12 +156,27 @@ Example configuration:
     "AuthToken": "",
     "IpWhitelist": [ "192.168.0.0/24", "127.0.0.1", "::1" ],
     "WorkingFolder": "c:/SimpleDeploy",
+    "JobsFolder": "Jobs",
+    "BackupsFolder": "Backups",
+    "MaxDeploymentSize": 1048576000, // 1GB
+    "MinFreeSpace": 104857600, // 100mb
+    "MaxBackupFiles": 10,
     "CleanupAfterDeploy": true,
     "RestartAfterDeploy": true,
     "DeploymentNames": {
       //"Allow": [ "*" ],
       "Allow": [ "example.com" ],
-      "Configurations": []
+      // optional per deployment configurations
+      "Configurations": [
+        {
+          "Name": "example.com",
+          "Domain": "example.com",
+          "IIS": true,
+          "AutoCopy": true,
+          "AutoExtract": true,
+          "Backup": true
+        }
+      ]
     }
   },
   "NLog": {
